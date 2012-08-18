@@ -4,8 +4,7 @@ import pprint
 # Generic Objects:
 class VeraDevice(object):
 
-    def __init__ (self, callback, id, altid, category, name, parent, room, subcategory, status, comment):
-         self.callback    = callback
+    def __init__ (self, id, altid, category, name, parent, room, subcategory, status, comment):
          self.id          = id
          self.altid       = altid
          self.category    = category
@@ -18,9 +17,13 @@ class VeraDevice(object):
          
          # not passed in:
          self.watched     = []
+         self.callbacks   = []
 
     def __str__(self):
          return "%s" % self.name
+
+    def getStateTuple(self):
+        return tuple() # empty tuple
 
     def update(self, d):
         changed = False
@@ -29,6 +32,8 @@ class VeraDevice(object):
         for watchedVar in self.watched:
              if (watchedVar in d.keys()) and d[watchedVar] != getattr(self,watchedVar):
                  changed = True
+                 
+        oldState = self.getStateTuple()
                      
         for k in d.keys():
             try:
@@ -37,7 +42,8 @@ class VeraDevice(object):
                 print self.name + ' does not have an attribute ' + k
 
         if changed:
-            self.callback(self)
+            for c in self.callbacks:
+                 c(self, ('TRANSITION', oldState, self.getStateTuple(), ))
 
     @staticmethod
     def elements():
@@ -53,8 +59,12 @@ class VeraDimmableLight(VeraDevice):
          self.watched = ['status','level']
             
     def __str__(self):
+        state = self.getStateTuple()
+        return('{0}.{1}.{2}').format(self.name, state[0], state[1])
+
+    def getStateTuple(self):
         onOff = 'OFF' if self.status == '0' else 'ON'
-        return(self.name + '.' + onOff + '.' + self.level)
+        return(onOff,int(self.level),)
 
     @staticmethod
     def elements():
@@ -69,8 +79,12 @@ class VeraSwitch(VeraDevice):
          self.watched = ['status']
         
     def __str__(self):
+        state = self.getStateTuple()
+        return('{0}.{1}').format(self.name, state[0])
+
+    def getStateTuple(self):
         onOff = 'OFF' if self.status == '0' else 'ON'
-        return(self.name + '.' + onOff)
+        return(onOff,)
 
     @staticmethod
     def elements():
@@ -86,11 +100,15 @@ class VeraSensor(VeraDevice):
          self.tripped  = tripped
          self.armed    = armed
          self.watched  = ['armed', 'tripped']
-        
+    
     def __str__(self):
+        state = self.getStateTuple()
+        return('{0}.{1}.{2}').format(self.name, state[0], state[1])
+        
+    def getStateTuple(self):
         trip = 'CLEAR' if self.tripped == '0' else 'TRIPPED'
         arm  = 'ARMED' if self.armed   == '1' else 'NOT_ARMED'
-        return(self.name + '.' + arm + '.' + trip)
+        return(arm, trip,)
          
     @staticmethod
     def elements():
@@ -130,8 +148,12 @@ class VeraDoorLock(VeraDevice):
         self.watched = ['locked']
 
     def __str__(self):
+        state = self.getStateTuple()
+        return('{0}.{1}').format(self.name, state[0])
+        
+    def getStateTuple(self):
         lock = 'LOCKED' if self.locked == '1' else 'UNLOCKED'
-        return(self.name + '.' + lock)
+        return(lock,)
              
     @staticmethod
     def elements():

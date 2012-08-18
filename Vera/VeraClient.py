@@ -1,9 +1,9 @@
 import json
-#import pprint
+import pprint
 
 from VeraDevice import *
 
-#pp = pprint.PrettyPrinter(indent=4)
+pp = pprint.PrettyPrinter(indent=4)
 
 #-----------------------------------------------------------------------------
 # Vera Stuff
@@ -17,6 +17,7 @@ class VeraClient:
         self.dev         = {}
         self.dev_cat     = {}
         self.categories  = {}
+        self.rooms       = {}
         self.base_url    = 'http://' + self.ip + ':3480/data_request?id=lu_sdata'
         self.callback    = callback
         self.dispatcher  = dispatcher
@@ -56,13 +57,7 @@ class VeraClient:
         return (self.base_url + "&loadtime="    + str(data['loadtime'])
                               + "&dataversion=" + str(data['dataversion'])
                               + "&timeout=60&minimumdelay=2000")
-    
-    #-----------------------------------------------------------------------------
-    def fill_table(self, data, query, col, tag):
-        for d in data[tag]:
-            keys = tuple(d[c] for c in col)
-            c.execute(query, keys)
-    
+   
     #-----------------------------------------------------------------------------
     def create_devices(self, data):
         
@@ -82,6 +77,10 @@ class VeraClient:
         for c in data['categories']:
                self.categories[c['id']] = c['name']
         
+        # Fill in Rooms
+        for r in data['rooms']:
+             self.rooms[str(r['id'])] = r['name'];
+        
         # Fill in Devices
         # Use proper constructor that is unique per Category
         for d in data['devices']:
@@ -91,13 +90,15 @@ class VeraClient:
             
             # Use Base Constructor for unknown devices
             if cat_idx not in self.categories:
-                self.dev[str(d['id'])] = VeraDevice(self.callback, *base)
+                self.dev[str(d['id'])] = VeraDevice(*base)
+                self.dev[str(d['id'])].callbacks.append(self.callback)
                 
             # Known Categories
             elif self.categories[cat_idx] in dev_con.keys():                
                 cat = self.categories[cat_idx]
                 extentions = tuple(d.get(c, None) for c in dev_con[cat].elements())  
-                self.dev[str(d['id'])] = dev_con[cat]((self.callback,) + base, *extentions)
+                self.dev[str(d['id'])] = dev_con[cat](base, *extentions)
+                self.dev[str(d['id'])].callbacks.append(self.callback)
             
         #for d in self.dev:
         #    print str(self.dev[d].id) + str(self.dev[d])  
@@ -114,7 +115,8 @@ class VeraClient:
         if 'devices' in data:
             for d in data['devices']:
                  key = str(d['id'])
-                 self.dev[key].update(d)
+                 if key in self.dev:
+                     self.dev[key].update(d)
 
         self.call_next_url(data)
     
