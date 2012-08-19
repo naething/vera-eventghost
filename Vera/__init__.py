@@ -9,7 +9,7 @@ from VeraAsyncDispatcher import *
 eg.RegisterPlugin(
     name = "MiCasaVerde Vera",
     author = "Rick Naething",
-    version = "0.0.2",
+    version = "0.0.3",
     kind = "other",
     description = "Control Over Devices on Vera"
 )
@@ -20,6 +20,7 @@ class Vera(eg.PluginBase):
     def __init__(self):
         self.AddAction(SetSwitchPower)
         self.AddAction(SetDimming)
+        self.AddAction(RunScene)
         self.HTTP_API   = VERA_HTTP_API()
         self.dispatcher = VeraAsyncDispatcher()
         self.vera       = []
@@ -47,8 +48,12 @@ class Vera(eg.PluginBase):
     def __close__(self):
         pass            
         
-    def veraCallback(self, VeraDev):
-        event = str(VeraDev)
+    def veraCallback(self, msg, state=tuple()):
+        # msg is either a string or a VeraDevice
+        if isinstance(msg, VeraDevice):
+            event = self.vera.rooms[msg.room] + '.' + str(msg)
+        else:
+            event = msg
         self.TriggerEvent(event)
     
 
@@ -76,7 +81,25 @@ class VERA_HTTP_API:
     def close(self):
         print 'HTTP API connection closed'
 
+#-----------------------------------------------------------------------------
+class RunScene(eg.ActionBase):
+    name = "Run Scene"
+    description = "Runs a Vera Scene"
 
+    def __call__(self, device):
+        print "Running Scene " + str(device)
+        url = "/data_request?id=lu_action&serviceId=urn:micasaverde-com:serviceId:HomeAutomationGateway1&action=RunScene&SceneNum="
+        url += str(device)
+        print url
+        responce = self.plugin.HTTP_API.send(url)
+
+    def Configure(self, device=1):
+        panel = eg.ConfigPanel()
+        deviceCtrl = panel.SpinIntCtrl(device)
+        panel.AddLine("Set Device", deviceCtrl)
+        while panel.Affirmed():
+            panel.SetResult(deviceCtrl.GetValue())
+        
 #-----------------------------------------------------------------------------
 class SetDimming(eg.ActionBase):
     name = "Set Light Level"

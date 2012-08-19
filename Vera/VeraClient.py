@@ -110,7 +110,11 @@ class VeraClient:
     
     #-----------------------------------------------------------------------------
     def update(self, output):
-        data = json.loads(output)
+        data = {}
+        try:
+            data = json.loads(output)
+        except Exception:
+            pass
         
         if 'devices' in data:
             for d in data['devices']:
@@ -129,6 +133,9 @@ class VeraClient:
     #-----------------------------------------------------------------------------
     def initial_load(self, output):
         self.callback('InitialData')
-        data = json.loads(output)
-        self.create_devices(data)
+        try:
+            data = json.loads(output)
+            self.create_devices(data)
+        except Exception: 
+            self.dispatcher.fetch(self.base_url, self.initial_load)
         self.call_next_url(data)
