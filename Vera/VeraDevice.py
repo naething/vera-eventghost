@@ -1,4 +1,4 @@
-import pprint
+#import pprint
 
 #-----------------------------------------------------------------------------
 # Generic Objects:
@@ -64,7 +64,7 @@ class VeraDimmableLight(VeraDevice):
 
     def getStateTuple(self):
         onOff = 'OFF' if self.status == '0' else 'ON'
-        return(onOff,int(self.level),)
+        return(onOff,float(self.level),)
 
     @staticmethod
     def elements():
