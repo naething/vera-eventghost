@@ -50,6 +50,26 @@ class VeraDevice(object):
         return ['id', 'altid', 'category', 'name', 'parent', 'room', 'subcategory', 'status', 'comment']
 
 #----------------------------------------------------------------------------- 
+# Category #0: Should not exist, but found in plugins such as "Day or Night" 
+class VeraVirtual(VeraDevice):
+
+    def __init__(self, base):
+        super(VeraVirtual,self).__init__(*base)
+        self.watched = ['status']
+
+    def __str__(self):
+        state = self.getStateTuple()
+        return('{0}.{1}').format(self.name, state[0])
+
+    def getStateTuple(self):
+        onOff = 'OFF' if self.status == '0' else 'ON'
+        return(onOff,)
+
+    @staticmethod
+    def elements():
+        return []
+
+#----------------------------------------------------------------------------- 
 # Category #2: Dimmable Lights       
 class VeraDimmableLight(VeraDevice):
 

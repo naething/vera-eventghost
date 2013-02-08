@@ -62,6 +62,7 @@ class VeraClient:
     def create_devices(self, data):
         
         dev_con = {}
+        dev_con['Virtual']             = VeraVirtual
         dev_con['Sensor']              = VeraSensor
         dev_con['Humidity Sensor']     = VeraHumiditySensor
         dev_con['Dimmable Light']      = VeraDimmableLight
@@ -75,11 +76,14 @@ class VeraClient:
         
         # Fill in Categories
         for c in data['categories']:
-               self.categories[c['id']] = c['name']
-        
+            self.categories[c['id']] = c['name']
+
+        # Hack for some 'virtual' devices with dev type == 0
+        self.categories[0] = 'Virtual'
+
         # Fill in Rooms
         for r in data['rooms']:
-             self.rooms[str(r['id'])] = r['name'];
+            self.rooms[str(r['id'])] = r['name'];
         
         # Fill in Devices
         # Use proper constructor that is unique per Category
