@@ -1,9 +1,9 @@
 import json
-import pprint
+#import pprint
 
 from VeraDevice import *
 
-pp = pprint.PrettyPrinter(indent=4)
+#pp = pprint.PrettyPrinter(indent=4)
 
 #-----------------------------------------------------------------------------
 # Vera Stuff
@@ -12,7 +12,7 @@ pp = pprint.PrettyPrinter(indent=4)
 class VeraClient:
         
     #-----------------------------------------------------------------------------
-    def __init__(self, ip, callback, dispatcher):
+    def __init__(self, ip, callback, debug_callback, dispatcher):
         self.ip          = ip
         self.dev         = {}
         self.dev_cat     = {}
@@ -20,6 +20,7 @@ class VeraClient:
         self.rooms       = {}
         self.base_url    = 'http://' + self.ip + ':3480/data_request?id=lu_sdata'
         self.callback    = callback
+        self.debug_callback = debug_callback
         self.dispatcher  = dispatcher
         self.dispatcher.fetch(self.base_url, self.initial_load)
 
@@ -54,9 +55,15 @@ class VeraClient:
     # this is specified by appending the previous dataversion
     # and time
     def create_new_url(self, data):
-        return (self.base_url + "&loadtime="    + str(data['loadtime'])
-                              + "&dataversion=" + str(data['dataversion'])
-                              + "&timeout=60&minimumdelay=2000")
+        # if for some reason the previous fetch didn't work this will throw a 
+        # key exception, and then we just want to do a clean fetch
+        try:
+            return (self.base_url + "&loadtime="    + str(data['loadtime'])
+                                  + "&dataversion=" + str(data['dataversion'])
+                                  + "&timeout=60&minimumdelay=2000")
+        except Exception: 
+            self.debug_callback('Data Fetch Returned Bad Data, Performing Clean Load')
+            self.dispatcher.fetch(self.base_url, self.initial_load)
    
     #-----------------------------------------------------------------------------
     def create_devices(self, data):
@@ -114,6 +121,7 @@ class VeraClient:
     
     #-----------------------------------------------------------------------------
     def update(self, output):
+        self.debug_callback('New Data Received from Vera')
         data = {}
         try:
             data = json.loads(output)
@@ -130,16 +138,20 @@ class VeraClient:
     
     #-----------------------------------------------------------------------------
     def call_next_url(self, data):
-        new_url = self.create_new_url(data)
-        self.callback('NewData')
-        self.dispatcher.fetch(new_url, self.update)
-        
+        try:
+            new_url = self.create_new_url(data)
+            self.dispatcher.fetch(new_url, self.update)
+        except Exception:
+            self.debug_callback('Data Fetch Failed, Performing Clean Load')
+            self.dispatcher.fetch(self.base_url, self.initial_load)
+
     #-----------------------------------------------------------------------------
     def initial_load(self, output):
-        self.callback('InitialData')
         try:
             data = json.loads(output)
             self.create_devices(data)
-        except Exception: 
+            self.debug_callback('Initial Data Received from Vera')
+            self.call_next_url(data)
+        except Exception:
             self.dispatcher.fetch(self.base_url, self.initial_load)
-        self.call_next_url(data)
+        

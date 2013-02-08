@@ -9,7 +9,7 @@ from VeraAsyncDispatcher import *
 eg.RegisterPlugin(
     name = "MiCasaVerde Vera",
     author = "Rick Naething",
-    version = "0.0.3",
+    version = "0.0.4",
     kind = "other",
     description = "Control Over Devices on Vera"
 )
@@ -24,23 +24,27 @@ class Vera(eg.PluginBase):
         self.HTTP_API   = VERA_HTTP_API()
         self.dispatcher = VeraAsyncDispatcher()
         self.vera       = []
+        self.verbose = True
         eg.RestartAsyncore()
 
-    def Configure(self, ip="127.0.0.1", port="3480"):
+    def Configure(self, ip="127.0.0.1", port="3480", verbose=True):
         panel = eg.ConfigPanel()
         textControl = wx.TextCtrl(panel, -1, ip)
         textControl2 = wx.TextCtrl(panel, -1, port)
+        checkbox = panel.CheckBox(verbose, 'Verbose Outputs')
         panel.sizer.Add(wx.StaticText(panel, -1, "IP address of Vera"))
         panel.sizer.Add(textControl)
         panel.sizer.Add(textControl2)
+        panel.sizer.Add(checkbox)
         while panel.Affirmed():
-            panel.SetResult(textControl.GetValue(), textControl2.GetValue())
+            panel.SetResult(textControl.GetValue(), textControl2.GetValue(), checkbox.GetValue())
 
-    def __start__(self, ip='127.0.0.1', port='3480'):
+    def __start__(self, ip='127.0.0.1', port='3480', verbose=True):
         self.ip = ip
         self.port = port
+        self.verbose = verbose
         self.HTTP_API.connect(ip=ip, port=port)
-        self.vera       = VeraClient(ip, self.veraCallback, self.dispatcher)
+        self.vera       = VeraClient(ip, self.veraCallback, self.veraDebugCallback, self.dispatcher)
 
     def __stop__(self):
         pass
@@ -51,11 +55,18 @@ class Vera(eg.PluginBase):
     def veraCallback(self, msg, state=tuple()):
         # msg is either a string or a VeraDevice
         if isinstance(msg, VeraDevice):
-            event = self.vera.rooms[msg.room] + '.' + str(msg)
+            room = 'No Room'
+            if msg.room in self.vera.rooms:
+                room = self.vera.rooms[msg.room]
+            event = room + '.' + str(msg)
         else:
             event = msg
         self.TriggerEvent(event)
     
+    def veraDebugCallback(self, msg, msg2=False):
+        if self.verbose:
+            event = 'DEBUG.' + msg
+            self.TriggerEvent(event)
 
 #-----------------------------------------------------------------------------      
 class VERA_HTTP_API:
@@ -139,7 +150,7 @@ class SetSwitchPower(eg.ActionBase):
     def Configure(self, device=1, function="On"):
         panel = eg.ConfigPanel()
         deviceCtrl = panel.SpinIntCtrl(device)
-        functionCtrl = panel.Choice(1, self.functionList)
+        functionCtrl = panel.Choice(function, self.functionList)
         panel.AddLine("Set Device", deviceCtrl)
         panel.AddLine("Value", functionCtrl)
         while panel.Affirmed():
