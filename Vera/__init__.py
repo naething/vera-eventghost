@@ -83,7 +83,10 @@ class VERA_HTTP_API:
 
     def send(self, url):
         try:
-            responce = urllib.urlopen('http://'+self.ip+':'+self.port+url).readlines()
+            #responce = urllib.urlopen('http://'+self.ip+':'+self.port+url).readlines()
+            consumer = urllib.urlopen('http://'+self.ip+':'+self.port+url)
+            responce = consumer.readlines()
+            consumer.close()
         except IOError:
             eg.PrintError('HTTP API connection error:'+' http://'+self.ip+':'+self.port+'\n'+ url)
         else:

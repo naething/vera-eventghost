@@ -1,4 +1,5 @@
 import json
+from time import time, sleep
 #import pprint
 
 from VeraDevice import *
@@ -82,8 +83,9 @@ class VeraClient:
         dev_con["Thermostat"]          = VeraThermostat
         
         # Fill in Categories
-        for c in data['categories']:
-            self.categories[c['id']] = c['name']
+        if 'categories' in data:
+            for c in data['categories']:
+                self.categories[c['id']] = c['name']
 
         # Hack for some 'virtual' devices with dev type == 0
         self.categories[0] = 'Virtual'
@@ -149,9 +151,12 @@ class VeraClient:
     def initial_load(self, output):
         try:
             data = json.loads(output)
+        except ValueError: # occurs when no JSON data existed in return
+            self.debug_callback('Initial Data Fetch Failed')
+            sleep(2)
+            self.dispatcher.fetch(self.base_url, self.initial_load)
+        else: #this runs if no exception was raised
             self.create_devices(data)
             self.debug_callback('Initial Data Received from Vera')
             self.call_next_url(data)
-        except Exception:
-            self.dispatcher.fetch(self.base_url, self.initial_load)
         
