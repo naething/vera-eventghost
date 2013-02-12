@@ -23,7 +23,17 @@ class VeraClient:
         self.callback    = callback
         self.debug_callback = debug_callback
         self.dispatcher  = dispatcher
-        self.dispatcher.fetch(self.base_url, self.initial_load)
+        self.get_outstanding = 0;
+        self.fetch(self.base_url, self.initial_load)
+
+    #-----------------------------------------------------------------------------
+    # Make sure we only have one http request outstanding
+    def fetch(self, url, callback):
+        if (self.get_outstanding == 0):
+            self.get_outstanding = self.get_outstanding + 1;
+            self.dispatcher.fetch(url, callback)
+        else:
+            self.debug_callback("Vera Message Split, Get Outstanding")
 
     #-----------------------------------------------------------------------------
     def BuildUrl(self, pairs):
@@ -38,7 +48,6 @@ class VeraClient:
                  'action=SetTarget',
                  'newTargetValue='+str(state)]
         url = self.BuildUrl(pairs)
-        #print url
         d = getPage(url)
 
     #-----------------------------------------------------------------------------
@@ -48,7 +57,6 @@ class VeraClient:
                  'action=SetTarget',
                  'newTargetValue=' + str(level)]
         url = self.BuildUrl(pairs)
-        #print url
         d = getPage(url)
 
     #-----------------------------------------------------------------------------
@@ -64,7 +72,7 @@ class VeraClient:
                                   + "&timeout=60&minimumdelay=2000")
         except Exception: 
             self.debug_callback('Data Fetch Returned Bad Data, Performing Clean Load')
-            self.dispatcher.fetch(self.base_url, self.initial_load)
+            self.fetch(self.base_url, self.initial_load)
    
     #-----------------------------------------------------------------------------
     def create_devices(self, data):
@@ -123,6 +131,7 @@ class VeraClient:
     
     #-----------------------------------------------------------------------------
     def update(self, output):
+        self.get_outstanding = self.get_outstanding - 1;
         self.debug_callback('New Data Received from Vera')
         data = {}
         try:
@@ -142,21 +151,27 @@ class VeraClient:
     def call_next_url(self, data):
         try:
             new_url = self.create_new_url(data)
-            self.dispatcher.fetch(new_url, self.update)
+            self.fetch(new_url, self.update)
         except Exception:
             self.debug_callback('Data Fetch Failed, Performing Clean Load')
-            self.dispatcher.fetch(self.base_url, self.initial_load)
+            self.fetch(self.base_url, self.initial_load)
 
     #-----------------------------------------------------------------------------
+    # one of two possible callbacks from http gets
     def initial_load(self, output):
-        try:
+        self.get_outstanding = self.get_outstanding - 1;
+        try:    
             data = json.loads(output)
         except ValueError: # occurs when no JSON data existed in return
             self.debug_callback('Initial Data Fetch Failed')
             sleep(2)
-            self.dispatcher.fetch(self.base_url, self.initial_load)
+            self.fetch(self.base_url, self.initial_load)
         else: #this runs if no exception was raised
-            self.create_devices(data)
             self.debug_callback('Initial Data Received from Vera')
-            self.call_next_url(data)
-        
+            try:
+                self.create_devices(data)
+            except KeyError: # the returned JSON didn't have what we were expecting
+                self.debug_callback('Initial Data Malformed, Trying Again')
+                self.fetch(self.base_url, self.initial_load)
+            else:
+                self.call_next_url(data)
