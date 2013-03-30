@@ -101,10 +101,8 @@ class RunScene(eg.ActionBase):
     description = "Runs a Vera Scene"
 
     def __call__(self, device):
-        print "Running Scene " + str(device)
         url = "/data_request?id=lu_action&serviceId=urn:micasaverde-com:serviceId:HomeAutomationGateway1&action=RunScene&SceneNum="
         url += str(device)
-        print url
         responce = self.plugin.HTTP_API.send(url)
 
     def Configure(self, device=1):
@@ -120,12 +118,14 @@ class SetDimming(eg.ActionBase):
     description = "Sets a light to a percentage (%)."
 
     def __call__(self, device, percentage):
-        print "Set " + str(device) + " to " + str(percentage)
         url = "/data_request?id=lu_action&DeviceNum="
         url += str(device)
         url += "&serviceId=urn:upnp-org:serviceId:Dimming1&action=SetLoadLevelTarget&newLoadlevelTarget="
         url += str(percentage)
         responce = self.plugin.HTTP_API.send(url)
+
+    def GetLabel(self, device, percentage):
+        return "Set Dimmable Light: " + str(device) + ": " + str(percentage)
 
     def Configure(self, device=1, percentage=100):
         panel = eg.ConfigPanel()
@@ -143,18 +143,21 @@ class SetSwitchPower(eg.ActionBase):
     functionList = ["Off", "On"]
     
     def __call__(self, device, value):
-        print "Set " + str(device) + " to " + str(value)
         url = "/data_request?id=lu_action&DeviceNum="
         url += str(device)
         url += "&serviceId=urn:upnp-org:serviceId:SwitchPower1&action=SetTarget&newTargetValue="
         url += str(value)
         responce = self.plugin.HTTP_API.send(url)
 
-    def Configure(self, device=1, function="On"):
+    def GetLabel(self, device, value):
+        return "Set Binary Power Device: " + str(device) + ": " + self.functionList[value]
+
+    def Configure(self, device=1, value=1):
         panel = eg.ConfigPanel()
         deviceCtrl = panel.SpinIntCtrl(device)
-        functionCtrl = panel.Choice(function, self.functionList)
+        functionCtrl = wx.Choice(panel, -1, choices=self.functionList)
+        functionCtrl.SetSelection(value)
         panel.AddLine("Set Device", deviceCtrl)
         panel.AddLine("Value", functionCtrl)
         while panel.Affirmed():
-            panel.SetResult(deviceCtrl.GetValue(), (functionCtrl.GetValue()))
+            panel.SetResult(deviceCtrl.GetValue(), functionCtrl.GetSelection())
